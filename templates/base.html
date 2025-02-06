@@ -1,17 +1,93 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Detection System Home</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Detection System</title>
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: Arial, sans-serif; text-align: center; padding-top: 50px; }
-    a { text-decoration: none; font-size: 1.5rem; margin: 20px; padding: 10px 20px; background: #3498db; color: white; border-radius: 5px; }
-    a:hover { background: #2980b9; }
+    /* Reset and Base Styles */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: url('https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1350&q=80') no-repeat center center fixed;
+      background-size: cover;
+      color: #fff;
+      position: relative;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    /* Dark overlay for readability */
+    .overlay {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      z-index: 1;
+    }
+    /* Container for landing content */
+    .container {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 20px;
+      animation: slideIn 1s ease-out forwards;
+      opacity: 0;
+    }
+    p {
+      font-size: 1.2rem;
+      margin-bottom: 40px;
+      animation: slideIn 1.5s ease-out forwards;
+      opacity: 0;
+    }
+    .buttons {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      justify-content: center;
+      animation: slideIn 2s ease-out forwards;
+      opacity: 0;
+    }
+    .buttons a {
+      text-decoration: none;
+      color: #fff;
+      background-color: #3498db;
+      padding: 15px 30px;
+      border-radius: 30px;
+      font-weight: bold;
+      transition: background-color 0.3s ease;
+    }
+    .buttons a:hover { background-color: #2980b9; }
+    @keyframes slideIn {
+      from { transform: translateY(50px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @media (max-width: 768px) {
+      h1 { font-size: 2.5rem; }
+      p { font-size: 1rem; }
+    }
   </style>
 </head>
 <body>
-  <h1>Detection System</h1>
-  <p>Select a service:</p>
-  <a href="/ambulance">Ambulance Detection</a>
-  <a href="/traffic">Traffic Detection</a>
+  <div class="overlay"></div>
+  <div class="container">
+    <h1>Advanced Detection System</h1>
+    <p>Empowering Safety with Cutting-Edge Detection for Ambulances, Traffic &amp; Accidents</p>
+    <div class="buttons">
+      <a href="/ambulance">Ambulance Detection</a>
+      <a href="/traffic">Traffic Detection</a>
+      <a href="/accident">Accident Detection</a>
+    </div>
+  </div>
 </body>
 </html>
