@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Traffic Detection</title>
+  <style>
+    body { font-family: 'Poppins', sans-serif; max-width: 1000px; margin: 2rem auto; padding: 0 20px; background: #f0f2f5; }
+    h1 { text-align: center; }
+    .container { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+    .section { border: 2px dashed #3498db; border-radius: 10px; padding: 2rem; margin: 1rem; background: #f8f9fa; flex: 1; }
+    .sections { display: flex; justify-content: space-between; flex-wrap: wrap; }
+    img { width: 100%; border-radius: 8px; margin: 1rem 0; display: none; }
+    #progressBar { height: 20px; background: #e9ecef; border-radius: 10px; margin: 1rem 0; overflow: hidden; display: none; }
+    #progressFill { height: 100%; background: #3498db; width: 0%; transition: width 0.3s ease; }
+    button { background: #3498db; color: white; border: none; padding: 0.8rem 2rem; border-radius: 25px; cursor: pointer; margin: 0.5rem; }
+    .result-section { text-align: center; font-size: 1.2rem; padding: 1rem; border-radius: 8px; display: none; }
+    .timer { text-align: center; font-size: 1.5rem; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚦 Traffic Detection</h1>
+    <div class="sections">
+      <!-- Vehicle Section -->
+      <div class="section" id="vehicleSection">
+        <h2>Vehicle Detection</h2>
+        <input type="file" id="vehicleInput" accept="image/*" hidden>
+        <button onclick="document.getElementById('vehicleInput').click()">Choose Vehicle Image</button>
+        <button id="detectVehicleButton" onclick="uploadVehicle()" style="display:none;">Detect Vehicle</button>
+        <div id="vehicleFileName"></div>
+        <img id="vehiclePreview" alt="Vehicle Preview">
+        <div id="vehicleResult" class="result-section"></div>
+      </div>
+      <!-- Pedestrian Section -->
+      <div class="section" id="pedestrianSection">
+        <h2>Pedestrian Detection</h2>
+        <input type="file" id="pedestrianInput" accept="image/*" hidden>
+        <button onclick="document.getElementById('pedestrianInput').click()">Choose Pedestrian Image</button>
+        <button id="detectPedestrianButton" onclick="uploadPedestrian()" style="display:none;">Detect Pedestrian</button>
+        <div id="pedestrianFileName"></div>
+        <img id="pedestrianPreview" alt="Pedestrian Preview">
+        <div id="pedestrianResult" class="result-section"></div>
+      </div>
+    </div>
+    <div id="progressBar">
+      <div id="progressFill"></div>
+    </div>
+    <div style="text-align:center;">
+      <button id="showTimerButton" onclick="calculateTimer()" disabled>Show Green Light Timer</button>
+      <div id="timerDisplay" class="timer"></div>
+    </div>
+  </div>
+  <script>
+    // Vehicle Section
+    const vehicleInput = document.getElementById('vehicleInput');
+    const vehiclePreview = document.getElementById('vehiclePreview');
+    const vehicleFileName = document.getElementById('vehicleFileName');
+    const detectVehicleButton = document.getElementById('detectVehicleButton');
+    let vehicleCount = 0;
+
+    vehicleInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        vehicleFileName.textContent = `Selected: ${file.name}`;
+        vehiclePreview.style.display = 'block';
+        vehiclePreview.src = URL.createObjectURL(file);
+        detectVehicleButton.style.display = 'inline-block';
+      }
+    });
+
+    document.getElementById('vehicleSection').addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    document.getElementById('vehicleSection').addEventListener('drop', (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        vehicleInput.files = e.dataTransfer.files;
+        vehicleInput.dispatchEvent(new Event('change'));
+      }
+    });
+
+    async function uploadVehicle() {
+      const file = vehicleInput.files[0];
+      if (!file) return;
+      detectVehicleButton.disabled = true;
+      detectVehicleButton.textContent = 'Processing...';
+      document.getElementById('progressBar').style.display = 'block';
+      const formData = new FormData();
+      formData.append('vehicle', file);
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percent = (e.loaded / e.total) * 50;
+          document.getElementById('progressFill').style.width = `${percent}%`;
+        }
+      });
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          document.getElementById('progressFill').style.width = '100%';
+          setTimeout(() => {
+            document.getElementById('progressBar').style.display = 'none';
+            document.getElementById('progressFill').style.width = '0%';
+          }, 500);
+          detectVehicleButton.disabled = false;
+          detectVehicleButton.textContent = 'Detect Vehicle';
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            vehicleCount = response.vehicle_count;
+            document.getElementById('vehicleResult').innerHTML = `<p>Vehicles Detected: ${vehicleCount}</p>`;
+            document.getElementById('vehicleResult').style.display = 'block';
+            if(response.annotated_image) {
+              vehiclePreview.src = response.annotated_image;
+            }
+            enableTimerButton();
+          } else {
+            document.getElementById('vehicleResult').textContent = 'Error processing image.';
+            document.getElementById('vehicleResult').style.display = 'block';
+          }
+        }
+      };
+      xhr.open('POST', '/detect_vehicle', true);
+      xhr.send(formData);
+    }
+
+    // Pedestrian Section
+    const pedestrianInput = document.getElementById('pedestrianInput');
+    const pedestrianPreview = document.getElementById('pedestrianPreview');
+    const pedestrianFileName = document.getElementById('pedestrianFileName');
+    const detectPedestrianButton = document.getElementById('detectPedestrianButton');
+    let pedestrianCount = 0;
+
+    pedestrianInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        pedestrianFileName.textContent = `Selected: ${file.name}`;
+        pedestrianPreview.style.display = 'block';
+        pedestrianPreview.src = URL.createObjectURL(file);
+        detectPedestrianButton.style.display = 'inline-block';
+      }
+    });
+
+    document.getElementById('pedestrianSection').addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    document.getElementById('pedestrianSection').addEventListener('drop', (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        pedestrianInput.files = e.dataTransfer.files;
+        pedestrianInput.dispatchEvent(new Event('change'));
+      }
+    });
+
+    async function uploadPedestrian() {
+      const file = pedestrianInput.files[0];
+      if (!file) return;
+      detectPedestrianButton.disabled = true;
+      detectPedestrianButton.textContent = 'Processing...';
+      document.getElementById('progressBar').style.display = 'block';
+      const formData = new FormData();
+      formData.append('pedestrian', file);
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percent = (e.loaded / e.total) * 50;
+          document.getElementById('progressFill').style.width = `${percent}%`;
+        }
+      });
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          document.getElementById('progressFill').style.width = '100%';
+          setTimeout(() => {
+            document.getElementById('progressBar').style.display = 'none';
+            document.getElementById('progressFill').style.width = '0%';
+          }, 500);
+          detectPedestrianButton.disabled = false;
+          detectPedestrianButton.textContent = 'Detect Pedestrian';
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            pedestrianCount = response.pedestrian_count;
+            document.getElementById('pedestrianResult').innerHTML = `<p>Pedestrians Detected: ${pedestrianCount}</p>`;
+            document.getElementById('pedestrianResult').style.display = 'block';
+            if(response.annotated_image) {
+              pedestrianPreview.src = response.annotated_image;
+            }
+            enableTimerButton();
+          } else {
+            document.getElementById('pedestrianResult').textContent = 'Error processing image.';
+            document.getElementById('pedestrianResult').style.display = 'block';
+          }
+        }
+      };
+      xhr.open('POST', '/detect_pedestrian', true);
+      xhr.send(formData);
+    }
+
+    // Timer Feature
+    function enableTimerButton() {
+      // Enable the timer button if at least one of the sections has been processed.
+      if (vehicleCount !== 0 || pedestrianCount !== 0) {
+        document.getElementById('showTimerButton').disabled = false;
+      }
+    }
+
+    function calculateTimer() {
+      const baseGreenTime = 30;
+      const totalCount = vehicleCount + pedestrianCount;
+      let greenTime = baseGreenTime;
+      if (totalCount >= 5) {
+        greenTime = baseGreenTime + Math.floor(Math.log(totalCount) * 10);
+      } else if (totalCount > 0) {
+        greenTime = Math.max(20, baseGreenTime - Math.floor(Math.log(totalCount + 1) * 5));
+      }
+      if (pedestrianCount >= 5) {
+        greenTime += Math.floor(Math.exp(pedestrianCount / 5));
+      }
+      document.getElementById('timerDisplay').textContent = `Green Light Timer: ${greenTime}s`;
+    }
+  </script>
+</body>
+</html>

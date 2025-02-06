@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ambulance Detection</title>
+  <style>
+    body { font-family: 'Poppins', sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 20px; background: #f0f2f5; }
+    .container { background: white; padding: 2rem; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+    h1 { text-align: center; }
+    .upload-section { border: 2px dashed #3498db; border-radius: 10px; padding: 2rem; text-align: center; margin-bottom: 2rem; background: #f8f9fa; }
+    video { width: 100%; border-radius: 8px; margin: 1rem 0; display: none; }
+    #progressBar { height: 20px; background: #e9ecef; border-radius: 10px; margin: 1rem 0; overflow: hidden; display: none; }
+    #progressFill { height: 100%; background: #3498db; width: 0%; transition: width 0.3s ease; }
+    button { background: #3498db; color: white; border: none; padding: 0.8rem 2rem; border-radius: 25px; cursor: pointer; margin: 0 0.5rem; }
+    .result-section { text-align: center; font-size: 1.2rem; padding: 1rem; border-radius: 8px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🚑 Ambulance Detection</h1>
+    <div class="upload-section">
+      <input type="file" id="videoInput" accept="video/*" hidden>
+      <button onclick="document.getElementById('videoInput').click()">Choose Video</button>
+      <button id="detectVideoButton" onclick="uploadVideo()" style="display:none;">Detect Ambulance</button>
+      <div id="videoFileName"></div>
+      <video id="videoPreview" controls></video>
+    </div>
+    <div id="progressBar">
+      <div id="progressFill"></div>
+    </div>
+    <div id="resultSection" class="result-section"></div>
+    <video id="annotatedVideo" controls style="display:none;"></video>
+  </div>
+  <script>
+    const videoInput = document.getElementById('videoInput');
+    const videoPreview = document.getElementById('videoPreview');
+    const videoFileName = document.getElementById('videoFileName');
+    const detectVideoButton = document.getElementById('detectVideoButton');
+
+    videoInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        videoFileName.textContent = `Selected file: ${file.name}`;
+        videoPreview.style.display = 'block';
+        videoPreview.src = URL.createObjectURL(file);
+        detectVideoButton.style.display = 'inline-block';
+      }
+    });
+
+    document.querySelector('.upload-section').addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+    });
+    document.querySelector('.upload-section').addEventListener('drop', (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('video/')) {
+        videoInput.files = e.dataTransfer.files;
+        videoInput.dispatchEvent(new Event('change'));
+      }
+    });
+
+    async function uploadVideo() {
+      const file = videoInput.files[0];
+      if (!file) return;
+
+      detectVideoButton.disabled = true;
+      detectVideoButton.textContent = 'Processing...';
+      document.getElementById('progressBar').style.display = 'block';
+      document.getElementById('resultSection').style.display = 'none';
+      document.getElementById('annotatedVideo').style.display = 'none';
+
+      const formData = new FormData();
+      formData.append('video', file);
+
+      const xhr = new XMLHttpRequest();
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const percent = (e.loaded / e.total) * 50;
+          document.getElementById('progressFill').style.width = `${percent}%`;
+        }
+      });
+      xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+          document.getElementById('progressFill').style.width = '100%';
+          setTimeout(() => {
+            document.getElementById('progressBar').style.display = 'none';
+            document.getElementById('progressFill').style.width = '0%';
+          }, 500);
+          detectVideoButton.disabled = false;
+          detectVideoButton.textContent = 'Detect Ambulance';
+          if (xhr.status === 200) {
+            const response = JSON.parse(xhr.responseText);
+            document.getElementById('resultSection').textContent = response.detected ? 
+              '🚑 Ambulance Detected!' : 'No Ambulance Found.';
+            document.getElementById('resultSection').style.display = 'block';
+            if (response.annotated_video) {
+              const annotatedVideo = document.getElementById('annotatedVideo');
+              annotatedVideo.style.display = 'block';
+              annotatedVideo.src = response.annotated_video;
+            }
+          } else {
+            document.getElementById('resultSection').textContent = 'Error processing video.';
+            document.getElementById('resultSection').style.display = 'block';
+          }
+        }
+      };
+      xhr.open('POST', '/detect', true);
+      xhr.send(formData);
+    }
+  </script>
+</body>
+</html>
