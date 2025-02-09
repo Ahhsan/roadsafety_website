@@ -3,177 +3,76 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ambulance Detection</title>
+  <title>Live Ambulance Detection</title>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body { margin: 0; padding: 0; font-family: 'Roboto', sans-serif; background: #f0f2f5; }
     .container {
-      max-width: 800px;
-      margin: 50px auto;
-      background: #fff;
-      border-radius: 10px;
-      padding: 30px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+      max-width: 800px; margin: 50px auto; background: #fff;
+      border-radius: 10px; padding: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
       animation: fadeIn 1s ease-out;
     }
-    h1 {
-      text-align: center;
-      margin-bottom: 20px;
-      animation: slideIn 1s ease-out forwards;
-      opacity: 0;
-    }
+    h1 { text-align: center; margin-bottom: 20px; animation: slideIn 1s ease-out forwards; opacity: 0; }
     .upload-section {
-      border: 2px dashed #3498db;
-      border-radius: 10px;
-      padding: 20px;
-      text-align: center;
-      background: #f8f9fa;
-      margin-bottom: 20px;
-      animation: slideIn 1.2s ease-out forwards;
-      opacity: 0;
+      border: 2px dashed #3498db; border-radius: 10px; padding: 20px;
+      text-align: center; background: #f8f9fa; margin-bottom: 20px;
+      animation: slideIn 1.2s ease-out forwards; opacity: 0;
     }
     button {
-      background: #3498db;
-      color: #fff;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 25px;
-      cursor: pointer;
-      margin: 10px;
-      transition: background 0.3s ease;
+      background: #3498db; color: #fff; border: none; padding: 10px 20px;
+      border-radius: 25px; cursor: pointer; margin: 10px; transition: background 0.3s ease;
     }
     button:hover { background: #2980b9; }
-    video {
-      width: 100%;
-      border-radius: 8px;
-      margin-top: 10px;
-      display: none;
-      animation: slideIn 1.4s ease-out forwards;
-      opacity: 0;
+    #liveStream {
+      width: 100%; border-radius: 8px; margin-top: 10px;
+      animation: slideIn 1.4s ease-out forwards; opacity: 0;
     }
-    #progressBar {
-      height: 20px;
-      background: #e9ecef;
-      border-radius: 10px;
-      margin: 10px 0;
-      overflow: hidden;
-      display: none;
-    }
-    #progressFill {
-      height: 100%;
-      background: #3498db;
-      width: 0%;
-      transition: width 0.3s ease;
-    }
-    .result-section {
-      text-align: center;
-      font-size: 1.2rem;
-      padding: 10px;
-      border-radius: 8px;
-      display: none;
-      animation: slideIn 1.6s ease-out forwards;
-      opacity: 0;
-    }
-    @keyframes slideIn {
-      from { transform: translateY(20px); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
+    @keyframes slideIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>🚑 Ambulance Detection</h1>
+    <h1>🚑 Live Ambulance Detection</h1>
     <div class="upload-section">
-      <input type="file" id="videoInput" accept="video/*" hidden>
-      <button onclick="document.getElementById('videoInput').click()">Choose Video</button>
-      <button id="detectVideoButton" onclick="uploadVideo()" style="display:none;">Detect Ambulance</button>
+      <input type="file" id="videoInput" accept="video/*" style="display: none;">
+      <button type="button" onclick="document.getElementById('videoInput').click()">Choose Video</button>
       <div id="videoFileName"></div>
-      <video id="videoPreview" controls></video>
     </div>
-    <div id="progressBar">
-      <div id="progressFill"></div>
+    <div id="streamContainer" style="display: none;">
+      <img id="liveStream" src="">
     </div>
-    <div id="resultSection" class="result-section"></div>
-    <video id="annotatedVideo" controls style="display:none;"></video>
   </div>
   <script>
-    // Ambulance Detection JavaScript
     const videoInput = document.getElementById('videoInput');
-    const videoPreview = document.getElementById('videoPreview');
     const videoFileName = document.getElementById('videoFileName');
-    const detectVideoButton = document.getElementById('detectVideoButton');
-
+    const streamContainer = document.getElementById('streamContainer');
+    const liveStream = document.getElementById('liveStream');
+    
     videoInput.addEventListener('change', function(e) {
       const file = e.target.files[0];
       if (file) {
-        videoFileName.textContent = `Selected file: ${file.name}`;
-        videoPreview.style.display = 'block';
-        videoPreview.src = URL.createObjectURL(file);
-        detectVideoButton.style.display = 'inline-block';
+        videoFileName.textContent = 'Selected file: ' + file.name;
+        uploadVideo(file);
       }
     });
-
-    document.querySelector('.upload-section').addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'copy';
-    });
-    document.querySelector('.upload-section').addEventListener('drop', (e) => {
-      e.preventDefault();
-      const file = e.dataTransfer.files[0];
-      if (file && file.type.startsWith('video/')) {
-        videoInput.files = e.dataTransfer.files;
-        videoInput.dispatchEvent(new Event('change'));
-      }
-    });
-
-    async function uploadVideo() {
-      const file = videoInput.files[0];
-      if (!file) return;
-      detectVideoButton.disabled = true;
-      detectVideoButton.textContent = 'Processing...';
-      document.getElementById('progressBar').style.display = 'block';
-      document.getElementById('resultSection').style.display = 'none';
-      document.getElementById('annotatedVideo').style.display = 'none';
+    
+    async function uploadVideo(file) {
       const formData = new FormData();
       formData.append('video', file);
-      const xhr = new XMLHttpRequest();
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const percent = (e.loaded / e.total) * 50;
-          document.getElementById('progressFill').style.width = `${percent}%`;
+      try {
+        const response = await fetch('/upload_live_video', { method: 'POST', body: formData });
+        const data = await response.json();
+        if(data.video_filename){
+          streamContainer.style.display = 'block';
+          liveStream.src = '/detect_live?video=' + data.video_filename;
+        } else {
+          videoFileName.textContent = 'Error uploading video.';
         }
-      });
-      xhr.onreadystatechange = function() {
-        if (xhr.readyState === 4) {
-          document.getElementById('progressFill').style.width = '100%';
-          setTimeout(() => {
-            document.getElementById('progressBar').style.display = 'none';
-            document.getElementById('progressFill').style.width = '0%';
-          }, 500);
-          detectVideoButton.disabled = false;
-          detectVideoButton.textContent = 'Detect Ambulance';
-          if (xhr.status === 200) {
-            const response = JSON.parse(xhr.responseText);
-            document.getElementById('resultSection').textContent = response.detected ?
-              '🚑 Ambulance Detected!' : 'No Ambulance Found.';
-            document.getElementById('resultSection').style.display = 'block';
-            if (response.annotated_video) {
-              const annotatedVideo = document.getElementById('annotatedVideo');
-              annotatedVideo.style.display = 'block';
-              annotatedVideo.src = response.annotated_video;
-            }
-          } else {
-            document.getElementById('resultSection').textContent = 'Error processing video.';
-            document.getElementById('resultSection').style.display = 'block';
-          }
-        }
-      };
-      xhr.open('POST', '/detect', true);
-      xhr.send(formData);
+      } catch (error) {
+        console.error('Error uploading video:', error);
+        videoFileName.textContent = 'Error uploading video.';
+      }
     }
   </script>
 </body>

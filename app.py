@@ -1,5 +1,5 @@
 # app.py
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from ultralytics import YOLO
 import cv2
 import os
@@ -64,57 +64,90 @@ def accident_page():
     return render_template('accident.html')
 
 # ---------------------------
-# Ambulance Detection Endpoint (Video)
+# Live Processing for Ambulance Detection
 # ---------------------------
-@app.route('/detect', methods=['POST'])
-def detect_ambulance():
+@app.route('/upload_live_video', methods=['POST'])
+def upload_live_video():
     if 'video' not in request.files:
         return jsonify({"error": "No video uploaded"}), 400
-    try:
-        video = request.files['video']
-        video_path = os.path.join(app.config['UPLOAD_FOLDER'], video.filename)
-        video.save(video_path)
+    video = request.files['video']
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"{timestamp}_{video.filename}"
+    video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    video.save(video_path)
+    return jsonify({"video_filename": filename})
 
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            return jsonify({"error": "Invalid video file"}), 400
+@app.route('/detect_live', methods=['GET'])
+def detect_live():
+    video_filename = request.args.get('video')
+    if not video_filename:
+        return "No video specified", 400
+    video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
+    return Response(generate_live_ambulance_frames(video_path),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        output_filename = f"annotated_{timestamp}.mp4"
-        output_path = os.path.join(app.config['RESULTS_FOLDER'], output_filename)
-        fourcc = cv2.VideoWriter_fourcc(*'avc1')
-        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+def generate_live_ambulance_frames(video_path):
+    cap = cv2.VideoCapture(video_path)
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        results = ambulance_model.predict(frame, conf=0.80)
+        annotated_frame = results[0].plot() if results else frame
+        ret2, buffer = cv2.imencode('.jpg', annotated_frame)
+        frame_bytes = buffer.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+    cap.release()
+    os.remove(video_path)
 
-        detected = False
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
+# ---------------------------
+# Live Processing for Accident Detection
+# ---------------------------
+@app.route('/upload_live_accident', methods=['POST'])
+def upload_live_accident():
+    if 'video' not in request.files:
+        return jsonify({"error": "No video uploaded"}), 400
+    video = request.files['video']
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    filename = f"{timestamp}_{video.filename}"
+    video_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    video.save(video_path)
+    return jsonify({"video_filename": filename})
 
-            results = ambulance_model.predict(frame, conf=0.80)
-            if results and len(results[0].boxes) > 0:
-                detected = True
+@app.route('/detect_live_accident', methods=['GET'])
+def detect_live_accident():
+    video_filename = request.args.get('video')
+    if not video_filename:
+        return "No video specified", 400
+    video_path = os.path.join(app.config['UPLOAD_FOLDER'], video_filename)
+    return Response(generate_live_accident_frames(video_path),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
 
-            annotated_frame = results[0].plot() if results else frame
-            out.write(annotated_frame)
-
-        cap.release()
-        out.release()
-        os.remove(video_path)
-        return jsonify({
-            "detected": detected,
-            "annotated_video": f"/static/results/{output_filename}"
-        })
-
-    except Exception as e:
-        print(f"Error processing video: {str(e)}")
-        return jsonify({"error": "Error processing video"}), 500
+def generate_live_accident_frames(video_path):
+    cap = cv2.VideoCapture(video_path)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        roi = cv2.resize(rgb_frame, (250, 250))
+        pred, prob = accident_model.predict_accident(roi[np.newaxis, :])
+        if pred == "Accident":
+            prob_val = round(prob[0][0] * 100, 2)
+            cv2.rectangle(frame, (0, 0), (280, 40), (0, 0, 0), -1)
+            cv2.putText(frame, f"{pred} {prob_val}%", (20, 30), font, 1, (255, 255, 0), 2)
+        ret2, buffer = cv2.imencode('.jpg', frame)
+        frame_bytes = buffer.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+    cap.release()
+    os.remove(video_path)
 
 # ---------------------------
 # Traffic Detection Endpoints (Vehicle & Pedestrian)
+# (These remain unchanged.)
 # ---------------------------
 def process_traffic_image(image_path, target_classes):
     image = cv2.imread(image_path)
@@ -207,58 +240,6 @@ def detect_pedestrian():
     except Exception as e:
         print(f"Error processing pedestrian image: {str(e)}")
         return jsonify({"error": "Error processing pedestrian image"}), 500
-
-# ---------------------------
-# Accident Detection Endpoint (Video)
-# ---------------------------
-@app.route('/detect_accident', methods=['POST'])
-def detect_accident():
-    if 'video' not in request.files:
-        return jsonify({"error": "No video uploaded"}), 400
-    try:
-        video = request.files['video']
-        video_path = os.path.join(app.config['UPLOAD_FOLDER'], video.filename)
-        video.save(video_path)
-
-        cap = cv2.VideoCapture(video_path)
-        if not cap.isOpened():
-            return jsonify({"error": "Invalid video file"}), 400
-
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        output_filename = f"annotated_accident_{timestamp}.mp4"
-        output_path = os.path.join(app.config['RESULTS_FOLDER'], output_filename)
-        fourcc = cv2.VideoWriter_fourcc(*'avc1')
-        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-        font = cv2.FONT_HERSHEY_SIMPLEX
-
-        while cap.isOpened():
-            ret, frame = cap.read()
-            if not ret:
-                break
-            # Convert frame to RGB and resize ROI to (250,250)
-            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            roi = cv2.resize(rgb_frame, (250, 250))
-            # Get prediction from the accident model
-            pred, prob = accident_model.predict_accident(roi[np.newaxis, :])
-            if pred == "Accident":
-                prob_val = round(prob[0][0]*100, 2)
-                cv2.rectangle(frame, (0, 0), (280, 40), (0, 0, 0), -1)
-                cv2.putText(frame, f"{pred} {prob_val}%", (20, 30), font, 1, (255, 255, 0), 2)
-            out.write(frame)
-
-        cap.release()
-        out.release()
-        os.remove(video_path)
-        return jsonify({
-            "annotated_video": f"/static/results/{output_filename}"
-        })
-
-    except Exception as e:
-        print(f"Error processing accident video: {str(e)}")
-        return jsonify({"error": "Error processing accident video"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
