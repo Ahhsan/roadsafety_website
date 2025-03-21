@@ -61,7 +61,7 @@ Contributions are welcome! Please follow these steps:
 See `requirements.txt` for a complete list of Python dependencies.
 
 ## License
-[Add license information here]
+This project is licensed under the MIT License.
 
 ## Contact
 For queries, reach out via [GitHub Issues](https://github.com/Ahhsan/roadsafety_website/issues).
