@@ -1,4 +1,3 @@
-```markdown
 # Accident Detection System
 
 ## Overview
@@ -24,11 +23,11 @@ Ensure you have the following installed:
 - Virtual environment for Flask
 
 ### Steps to Run
-#### Backend:
+
 1. Clone the repository:
    ```sh
    git clone https://github.com/Ahhsan/roadsafety_website.git
-   cd roadsafety_website/backend
+   cd roadsafety_website
    ```
 2. Create a virtual environment and activate it:
    ```sh
@@ -44,19 +43,7 @@ Ensure you have the following installed:
    python app.py
    ```
 
-#### Frontend:
-1. Navigate to the frontend directory:
-   ```sh
-   cd ../frontend
-   ```
-2. Install dependencies:
-   ```sh
-   npm install
-   ```
-3. Start the development server:
-   ```sh
-   npm run dev
-   ```
+
 
 ## Usage
 1. Upload a video feed for analysis.
@@ -76,10 +63,6 @@ See `requirements.txt` for a complete list of Python dependencies.
 ## License
 [Add license information here]
 
-## Contributors
-[Add contributor information here]
-
 ## Contact
 For queries, reach out via [GitHub Issues](https://github.com/Ahhsan/roadsafety_website/issues).
-```
 
